@@ -35,21 +35,26 @@ def choose_path(paths: dict) -> str:
             best_ratio = ratio
             best_path = path
 
-    best_strength_gained = paths[best_path][STRENGTH_GAINED]
-    best_time = paths[best_path][TIME]
-    print(
-        f"Best choice is: {best_path} enemy path, with strength gained: {best_strength_gained} and time: {best_time} seconds"
-    )
+    print(f"Best choice is {best_path} enemy path.")
     return best_path
 
 
-def fight_dragon(dragon_hp: int, best_path: dict):
-    strength_gained = best_path[STRENGTH_GAINED]
-    time = best_path[TIME]
+def fight_dragon(dragon_hp: int, path: dict):
+    current_strength = 0
+    current_time = 0
+    current_steps = 0
 
-    if strength_gained >= dragon_hp:
+    while True:
+        if current_strength < dragon_hp and current_steps <= path[STEPS]:
+            current_strength += path[STRENGTH_GAINED]
+            current_time += path[TIME]
+            current_steps += 1
+        else:
+            break
+
+    if current_strength >= dragon_hp:
         print(
-            f"You have defeated the dragon. Strength gained: {strength_gained}, time taken: {time} seconds."
+            f"You have defeated the dragon after {current_steps} steps and {current_time} seconds with {current_strength} strength."
         )
     else:
         print("You cannot defeat the dragon")
