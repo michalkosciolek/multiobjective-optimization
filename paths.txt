@@ -1,4 +1,4 @@
 15
-wizard 30 10 15
-knight 60 5 10
-bandit 10 15 30
+wizard,30,10,15
+knight,60,5,10
+bandit,10,15,30

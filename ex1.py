@@ -23,6 +23,9 @@ def read_paths_from_file(file_path: str) -> dict:
 
 
 def choose_path(paths: dict) -> str:
+    if not paths:
+        raise ValueError("No paths available to choose from")
+
     best_path = None
     best_ratio = 0
 
