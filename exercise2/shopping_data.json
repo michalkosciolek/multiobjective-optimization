@@ -1,0 +1,30 @@
+{
+    "num_nodes": 6,
+    "home_node": 0,
+    "max_time": 120,
+    "purchase_time": 5,
+    "shopping_list": [
+        "bread", 
+        "milk", 
+        "butter", 
+        "apples", 
+        "coffee"
+    ],
+    "adj_list": [
+        [0, 1, 10], 
+        [1, 2, 15], 
+        [0, 2, 20],
+        [2, 3, 10],
+        [3, 4, 20], 
+        [1, 4, 30],
+        [4, 5, 5],  
+        [2, 5, 25]
+    ],
+    "store_inventories": {
+        "1": ["milk", "water", "eggs"],
+        "2": ["bread", "apples", "soda"],
+        "3": ["butter", "cheese"],
+        "4": ["coffee", "tea"],
+        "5": ["bread", "milk", "coffee", "cake"]
+    }
+}
