@@ -23,9 +23,8 @@ class ShoppingResults:
 
     def print_results(self):
         print("=" * 60)
-        print("SHOPPING OPTIMIZATION RESULTS")
+        print("SHOPPING RESULTS")
         print("=" * 60)
-        print(f"Items Acquired: {len(self.items)}")
         print(f"Items: {', '.join(self.items) if self.items else 'None'}")
         print()
         print(f"Route: {' -> '.join(map(str, self.route))}")
@@ -34,9 +33,17 @@ class ShoppingResults:
 
 
 class StoresGraph:
-    def __init__(self, num_nodes: int, edges=None, store_inventories=None, home_node=0):
+    def __init__(
+        self,
+        num_nodes: int,
+        edges=None,
+        store_inventories=None,
+        home_node=0,
+        purchase_time=0,
+    ):
         self.num_nodes = num_nodes
         self.home_node = home_node
+        self.purchase_time = purchase_time
         self.adj_list = self._build_adjacency_list(edges or [])
         self.store_inventories = self._build_store_inventories(store_inventories or {})
 
@@ -60,7 +67,58 @@ class StoresGraph:
             for store, inventory in (store_inventories or {}).items()
         }
 
-    def filter_relevant_stores(self, shopping_list: list[str]) -> dict[int, set[str]]:
+    def _dfs_search(
+        self,
+        current_node: int,
+        current_time: int,
+        visited_stores: set[int],
+        acquired_items: set[str],
+        current_sequence: list[int],
+        filtered_stores: dict[int, set[str]],
+        dist: dict[int, dict[int, float]],
+        max_time: int,
+        best_state: ShoppingState,
+    ):
+        if len(acquired_items) > best_state.items_count:
+            best_state.items_count = len(acquired_items)
+            best_state.sequence = list(current_sequence)
+            best_state.items = set(acquired_items)
+
+        candidates = []
+        for store, inventory in filtered_stores.items():
+            if store in visited_stores:
+                continue
+
+            new_items = inventory - acquired_items
+            if not new_items:
+                continue
+
+            travel_time = dist[current_node][store]
+            time_to_home = dist[store][self.home_node]
+
+            total_time_needed = (
+                current_time + travel_time + self.purchase_time + time_to_home
+            )
+
+            if total_time_needed <= max_time:
+                candidates.append((store, new_items, travel_time))
+
+        for store, new_items, travel_time in candidates:
+            visited_stores.add(store)
+            self._dfs_search(
+                store,
+                current_time + travel_time + self.purchase_time,
+                visited_stores,
+                acquired_items.union(new_items),
+                current_sequence + [store],
+                filtered_stores,
+                dist,
+                max_time,
+                best_state,
+            )
+            visited_stores.remove(store)
+
+    def _filter_relevant_stores(self, shopping_list: list[str]) -> dict[int, set[str]]:
         filtered_stores = {}
         shopping_set = set(shopping_list)
 
@@ -71,12 +129,21 @@ class StoresGraph:
 
         return filtered_stores
 
-    def find_shortest_paths(
-        self, start_node: int
-    ) -> tuple[dict[int, float], dict[int, int | None]]:
+    def _build_distance_matrix(
+        self, filtered_stores: list[int]
+    ) -> dict[int, dict[int, float]]:
+        relevant_nodes = list(filtered_stores.keys()) + [self.home_node]
+        distances = {}
+
+        for node in relevant_nodes:
+            current_dist = self._find_shortest_paths(node)
+            distances[node] = current_dist
+
+        return distances
+
+    def _find_shortest_paths(self, start_node: int) -> dict[int, float]:
         distances = {i: float("inf") for i in range(self.num_nodes)}
         distances[start_node] = 0
-        prev = {i: None for i in range(self.num_nodes)}
         visited = set()
 
         while len(visited) < self.num_nodes:
@@ -98,96 +165,23 @@ class StoresGraph:
 
                 if distance < distances[neighbor]:
                     distances[neighbor] = distance
-                    prev[neighbor] = current_node
 
-        return distances, prev
+        return distances
 
-    def _dfs_search(
-        self,
-        current_node: int,
-        current_time: int,
-        visited_stores: set,
-        acquired_items: set,
-        current_sequence: list,
-        filtered_stores: dict,
-        dist: dict,
-        max_time: int,
-        purchase_time: int,
-        best_state: ShoppingState,
-    ):
-        """
-        DFS with backtracking to find optimal shopping route.
-
-        Args:
-            current_node: Current location
-            current_time: Time elapsed so far
-            visited_stores: Set of already visited stores
-            acquired_items: Set of items acquired so far
-            current_sequence: Current route sequence
-            filtered_stores: Dict of store -> items available
-            dist: Distance matrix between nodes
-            max_time: Maximum time allowed
-            purchase_time: Fixed time per store visit
-            best_state: ShoppingState tracking best solution (modified in-place)
-        """
-        # Update best solution if current path has more items
-        if len(acquired_items) > best_state.items_count:
-            best_state.items_count = len(acquired_items)
-            best_state.sequence = list(current_sequence)
-            best_state.items = set(acquired_items)
-
-        # Generate candidate stores
-        candidates = []
-        for store, inventory in filtered_stores.items():
-            if store not in visited_stores:
-                new_items = inventory - acquired_items
-                if not new_items:
-                    continue
-
-                travel_time = dist[current_node][store]
-                time_to_home = dist[store][self.home_node]
-
-                # Safety check in case a store is unreachable
-                if travel_time == float("inf") or time_to_home == float("inf"):
-                    continue
-
-                total_time_needed = (
-                    current_time + travel_time + purchase_time + time_to_home
-                )
-
-                if total_time_needed <= max_time:
-                    candidates.append((store, new_items, travel_time))
-
-        # Sort by number of new items (descending) - prioritization
-        candidates.sort(key=lambda x: len(x[1]), reverse=True)
-
-        # Explore each candidate with backtracking
-        for store, new_items, travel_time in candidates:
-            visited_stores.add(store)
-            self._dfs_search(
-                store,
-                current_time + travel_time + purchase_time,
-                visited_stores,
-                acquired_items.union(new_items),
-                current_sequence + [store],
-                filtered_stores,
-                dist,
-                max_time,
-                purchase_time,
-                best_state,
-            )
-            visited_stores.remove(store)
+    def _calculate_time_used(
+        self, best_state: ShoppingState, distances: dict[int, dict[int, float]]
+    ) -> int:
+        time_used = 0
+        for i in range(len(best_state.sequence) - 1):
+            time_used += distances[best_state.sequence[i]][best_state.sequence[i + 1]]
+            if i > 0 and i < len(best_state.sequence) - 1:
+                time_used += self.purchase_time
+        return time_used
 
     def find_best_route(
-        self, shopping_list: list[str], max_time: int, purchase_time: int
+        self, shopping_list: list[str], max_time: int
     ) -> ShoppingResults:
-        """
-        Find the best shopping route that maximizes items purchased within time limit.
-
-        Returns:
-            ShoppingResults object with route, items, and time_used attributes
-        """
-        filtered_stores = self.filter_relevant_stores(shopping_list)
+        filtered_stores = self._filter_relevant_stores(shopping_list)
 
         if not filtered_stores:
             return ShoppingResults(
@@ -196,18 +190,10 @@ class StoresGraph:
                 time_used=0,
             )
 
-        # Build distance matrix between all relevant nodes
-        relevant_nodes = list(filtered_stores.keys()) + [self.home_node]
-        dist = {}
+        distances = self._build_distance_matrix(filtered_stores)
 
-        for node in relevant_nodes:
-            distances, _ = self.find_shortest_paths(node)
-            dist[node] = distances
-
-        # State tracker for DFS (modified in-place)
         best_state = ShoppingState(items_count=-1, sequence=[], items=set())
 
-        # Start DFS from home node
         self._dfs_search(
             self.home_node,
             0,
@@ -215,26 +201,18 @@ class StoresGraph:
             set(),
             [self.home_node],
             filtered_stores,
-            dist,
+            distances,
             max_time,
-            purchase_time,
             best_state,
         )
 
-        # Complete the route by returning home
         best_state.sequence.append(self.home_node)
 
-        # Calculate final time used
-        time_used = 0
-        for i in range(len(best_state.sequence) - 1):
-            time_used += dist[best_state.sequence[i]][best_state.sequence[i + 1]]
-            # Add purchase time for intermediate stores (not home)
-            if i > 0 and i < len(best_state.sequence) - 1:
-                time_used += purchase_time
+        time_used = self._calculate_time_used(best_state, distances)
 
         return ShoppingResults(
             route=best_state.sequence,
-            items=sorted(list(best_state.items)),
+            items=best_state.items,
             time_used=time_used,
         )
 
@@ -255,12 +233,12 @@ if __name__ == "__main__":
     graph = StoresGraph(
         num_nodes=data["num_nodes"],
         home_node=data["home_node"],
+        purchase_time=data["purchase_time"],
         edges=data["edges"],
         store_inventories=data["store_inventories"],
     )
     max_time = data["max_time"]
-    purchase_time = data["purchase_time"]
     shopping_list = data["shopping_list"]
 
-    result = graph.find_best_route(shopping_list, max_time, purchase_time)
+    result = graph.find_best_route(shopping_list, max_time)
     result.print_results()
