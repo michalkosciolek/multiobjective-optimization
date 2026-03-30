@@ -27,7 +27,7 @@ class ShoppingResults:
         print("=" * 60)
         print(f"Items: {', '.join(self.items) if self.items else 'None'}")
         print()
-        print(f"Route: {' -> '.join(map(str, self.route))}")
+        print(f"Shops visited: {' -> '.join(map(str, self.route))}")
         print(f"Time Used: {self.time_used} units")
         print("=" * 60)
 
