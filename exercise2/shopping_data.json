@@ -1,7 +1,7 @@
 {
     "num_nodes": 6,
     "home_node": 0,
-    "max_time": 120,
+    "max_time": 110,
     "purchase_time": 5,
     "shopping_list": [
         "bread", 
