@@ -1,0 +1,67 @@
+{
+    "tasks": [
+        "T1",
+        "T2",
+        "T3",
+        "T4"
+    ],
+    "dependencies": [
+        {
+            "source": "T1",
+            "target": "T3",
+            "data_size": 5
+        },
+        {
+            "source": "T2",
+            "target": "T3",
+            "data_size": 3
+        },
+        {
+            "source": "T3",
+            "target": "T4",
+            "data_size": 2
+        }
+    ],
+    "resources": [
+        {
+            "id": "R1",
+            "execution_time": {
+                "T1": 5,
+                "T2": 4,
+                "T3": 7,
+                "T4": 3
+            },
+            "execution_cost": {
+                "T1": 10,
+                "T2": 8,
+                "T3": 15,
+                "T4": 6
+            }
+        },
+        {
+            "id": "R2",
+            "execution_time": {
+                "T1": 3,
+                "T2": 6,
+                "T3": 4,
+                "T4": 5
+            },
+            "execution_cost": {
+                "T1": 14,
+                "T2": 7,
+                "T3": 10,
+                "T4": 9
+            }
+        }
+    ],
+    "channels": [
+        {
+            "id": "C1",
+            "cost_per_unit": 1.5
+        },
+        {
+            "id": "C2",
+            "cost_per_unit": 2.0
+        }
+    ]
+}
