@@ -1,0 +1,8 @@
+{
+	"population_size": 10,
+	"chromosome_length": 12,
+	"selection_size": 10,
+	"offspring_size": 10,
+	"mutation_rate": 0.05,
+	"crossover_rate": 0.9
+}
