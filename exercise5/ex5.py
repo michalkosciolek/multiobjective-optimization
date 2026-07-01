@@ -96,6 +96,77 @@ def calc_dist(first_node: int, second_node: int) -> float:
     return math.hypot(x2 - x1, y2 - y1)
 
 
+def _reachable_supply_distances(start_node: int, budget: float) -> dict[int, float]:
+    max_time = CONFIG["max_operating_time"]
+    supply_nodes = CONFIG["supply_nodes"]
+
+    distances = {}
+    for supply_node in supply_nodes:
+        distance = calc_dist(start_node, supply_node)
+        if distance <= budget:
+            distances[supply_node] = distance
+
+    improved = True
+    while improved:
+        improved = False
+        for source, source_distance in list(distances.items()):
+            for target in supply_nodes:
+                if target == source:
+                    continue
+                hop = calc_dist(source, target)
+                if hop > max_time:
+                    continue
+                candidate = source_distance + hop
+                if candidate < distances.get(target, float("inf")):
+                    distances[target] = candidate
+                    improved = True
+
+    return distances
+
+
+def _prune_dominated(states: list[tuple[float, float]]) -> list[tuple[float, float]]:
+    kept = []
+    for fuel_used, total_distance in states:
+        if any(
+            other_fuel <= fuel_used
+            and other_distance <= total_distance
+            and (other_fuel, other_distance) != (fuel_used, total_distance)
+            for other_fuel, other_distance in states
+        ):
+            continue
+        kept.append((fuel_used, total_distance))
+    return kept
+
+
+def _advance(
+    prev_node: int, next_node: int, states: list[tuple[float, float]]
+) -> list[tuple[float, float]]:
+    max_time = CONFIG["max_operating_time"]
+    direct_distance = calc_dist(prev_node, next_node)
+    next_states = []
+
+    for fuel_used, total_distance in states:
+        if fuel_used + direct_distance <= max_time:
+            next_states.append(
+                (fuel_used + direct_distance, total_distance + direct_distance)
+            )
+
+        budget = max_time - fuel_used
+        for supply_node, distance_to_supply in _reachable_supply_distances(
+            prev_node, budget
+        ).items():
+            distance_from_supply = calc_dist(supply_node, next_node)
+            if distance_from_supply <= max_time:
+                next_states.append(
+                    (
+                        distance_from_supply,
+                        total_distance + distance_to_supply + distance_from_supply,
+                    )
+                )
+
+    return _prune_dominated(next_states)
+
+
 def evaluate_fitness(individual: Genotype) -> float:
     decoded_routes = individual.decode()
     total_time = 0
@@ -106,45 +177,17 @@ def evaluate_fitness(individual: Genotype) -> float:
             continue
 
         current_node = CONFIG["depot"]
-        time_elapsed = 0
+        states = [(0.0, 0.0)]
         full_path = route + [CONFIG["depot"]]
 
         for next_node in full_path:
-            distance = calc_dist(current_node, next_node)
+            states = _advance(current_node, next_node, states)
+            if not states:
+                individual.fitness = penalty
+                return penalty
+            current_node = next_node
 
-            if time_elapsed + distance <= CONFIG["max_operating_time"]:
-                total_time += distance
-                time_elapsed += distance
-                current_node = next_node
-            else:
-                best_supply = None
-                min_detour = float("inf")
-
-                for supply_node in CONFIG["supply_nodes"]:
-                    to_supply = calc_dist(current_node, supply_node)
-                    from_supply = calc_dist(supply_node, next_node)
-
-                    if time_elapsed + to_supply <= CONFIG["max_operating_time"]:
-                        detour = to_supply + from_supply
-                        if detour < min_detour:
-                            min_detour = detour
-                            best_supply = supply_node
-
-                if best_supply is None:
-                    individual.fitness = penalty
-                    return penalty
-
-                total_time += calc_dist(current_node, best_supply)
-                time_elapsed = 0
-
-                distance_from_supply = calc_dist(best_supply, next_node)
-                if distance_from_supply > CONFIG["max_operating_time"]:
-                    individual.fitness = penalty
-                    return penalty
-
-                total_time += distance_from_supply
-                time_elapsed += distance_from_supply
-                current_node = next_node
+        total_time += min(total_distance for _, total_distance in states)
 
     individual.fitness = total_time
     return total_time

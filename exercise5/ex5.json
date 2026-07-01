@@ -3,7 +3,7 @@
   "demand_nodes": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
   "supply_nodes": [0, 11, 12],
   "num_couriers": 3,
-  "max_operating_time": 40,
+  "max_operating_time": 90,
   "coords": {
     "0": [50, 50],
     "1": [10, 20],
