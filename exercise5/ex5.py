@@ -83,11 +83,8 @@ def load_config(filepath: str) -> None:
     with open(config_path, "r", encoding="utf-8") as file:
         data = json.load(file)
 
-    data["coords"] = {
-        int(key): tuple(value) for key, value in data["coords"].items()
-    }
+    data["coords"] = {int(key): tuple(value) for key, value in data["coords"].items()}
     CONFIG = data
-
 
 
 def calc_dist(first_node: int, second_node: int) -> float:

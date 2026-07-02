@@ -1,240 +1,79 @@
-# Exercise 5 - Genetic Algorithm for Courier Allocation
+# Exercise 5 - documentation
 
-## Problem Summary
+## Overview
 
-This task asks for a program that uses a genetic algorithm to assign demand nodes to couriers so that every demand node is visited exactly once by some courier, while supply nodes may be visited whenever needed for refueling.
+This program uses a genetic algorithm to assign demand nodes to couriers. Every demand node must be visited exactly once, while supply nodes can be used when a courier needs to refuel.
 
-The graph contains:
+The program keeps a base assignment of demand nodes to couriers and then applies route modifications such as moving or swapping nodes. Fitness is based on total travel distance, and infeasible solutions receive a large penalty.
 
-- **Demand nodes**: nodes that must be visited by couriers.
-- **Supply nodes**: nodes where a courier can refuel.
-- **Edge weights**: travel time between nodes, computed from coordinates as Euclidean distance.
-- **Courier limit**: every courier has a maximum operating time before refueling is required.
+#
+## Requirements
 
-The goal of the genetic algorithm is to find a low-cost allocation of demand nodes to couriers.
+### Python Version
+- Minimum Python 3.9
 
-## How the Algorithm Works
+#
+## Input data format
 
-The solution uses a standard genetic algorithm loop:
+You have to provide input file in JSON format with the following structure:
 
-1. Create an initial population of candidate allocations.
-2. Evaluate each candidate with a fitness function.
-3. Keep the best candidates.
-4. Generate new candidates with crossover and mutation.
-5. Repeat for many generations.
-
-The best candidate found at the end is printed as the final courier allocation.
-
-## Representation of a Solution
-
-The implementation uses a two-level chromosome structure.
-
-### Gene
-
-A gene represents an assignment or modification related to courier routes.
-
-The first gene is the **base assignment**:
-
-- a mapping from courier identifiers to lists of demand nodes.
-- this is the initial distribution of demand nodes among couriers.
-
-Other genes are stored as **modifications**:
-
-- `MOVE`: move one demand node to another courier.
-- `SWAP`: swap two demand nodes between couriers.
-
-This matches the task description:
-
-- the first gene stores couriers and their visited nodes,
-- later genes modify the previously made assignment.
-
-### Genotype
-
-A genotype is the full chromosome.
-
-In this implementation it contains:
-
-- `base_assignment`: the first gene,
-- `modifications`: a sequence of changes applied on top of the base assignment,
-- `fitness`: the total travel cost of the decoded allocation.
-
-To evaluate a genotype, the algorithm first decodes it into the final assignment of demand nodes to couriers.
-
-## Decoding the Genotype
-
-The `decode()` method starts from the base assignment and applies the modifications in order.
-
-### MOVE modification
-
-A `MOVE` gene has the form:
-
-```python
-("MOVE", node, target_courier)
+```json
+{
+	"depot": 0,
+	"demand_nodes": [1, 2, 3, 4],
+	"supply_nodes": [0, 5],
+	"num_couriers": 2,
+	"max_operating_time": 90,
+	"coords": {
+		"0": [50, 50],
+		"1": [10, 20],
+		"2": [15, 80],
+		"3": [40, 90],
+		"4": [80, 20],
+		"5": [20, 50]
+	}
+}
 ```
 
-It means:
+### Fields Description
 
-- find the courier currently owning `node`,
-- remove that node from the current courier route,
-- append it to the target courier route.
+**depot** - Starting and ending node for every courier.
 
-### SWAP modification
+**demand_nodes** - Nodes that must be assigned to couriers.
 
-A `SWAP` gene has the form:
+**supply_nodes** - Nodes that can be used for refueling.
 
-```python
-("SWAP", node1, node2)
-```
+**num_couriers** - Number of available couriers.
 
-It means:
+**max_operating_time** - Maximum distance a courier can travel before refueling.
 
-- find the couriers that currently own the two nodes,
-- exchange the nodes between those couriers.
+**coords** - Node coordinates used to calculate Euclidean distance.
 
-### Why decoding matters
-
-This approach makes the chromosome compact:
-
-- the base assignment gives a valid starting point,
-- modifications store only differences from that base.
-
-The `compress()` method periodically re-encodes the current decoded solution back into the base assignment and clears the modification list. This keeps chromosomes from growing too long over many generations.
-
-## Fitness Evaluation
-
-The fitness function measures the total travel time of all couriers.
-
-### Route construction
-
-For each courier:
-
-- start from the depot,
-- visit all assigned demand nodes in the order stored in the route,
-- return to the depot.
-
-So each courier route is treated as:
-
-```python
-[depot, demand_1, demand_2, ..., demand_k, depot]
-```
-
-### Travel feasibility
-
-Each courier can travel only up to `max_operating_time` without refueling.
-
-For every next step in the route, the algorithm checks whether the courier can go directly from the current node to the next node.
-
-- If yes, the distance is added to the total travel time.
-- If not, the algorithm tries to detour through a supply node.
-
-### Refueling logic
-
-When direct travel is not possible, the algorithm searches all supply nodes and selects the best one that:
-
-- is reachable before the courier runs out of operating time,
-- minimizes the detour cost `current -> supply -> next`.
-
-If no supply node is reachable, the genotype is considered infeasible and receives a large penalty.
-
-If the best supply node still cannot reach the next node directly, the genotype also receives the penalty.
-
-### Penalty value
-
-Infeasible solutions get a fitness of `10000`.
-
-This ensures that valid routes are always preferred over invalid ones.
-
-## Genetic Operators
-
-### Initial population
-
-The initial population is generated randomly.
-
-Demand nodes are shuffled and distributed evenly among couriers so that every demand node is assigned exactly once.
-
-This guarantees that the initial solutions already satisfy the coverage constraint: every demand node is visited by one courier.
-
-### Crossover
-
-Crossover combines the modifications of two parents.
-
-The implementation:
-
-- copies the base assignment from the first parent,
-- takes a prefix of the first parent’s modifications,
-- takes a suffix of the second parent’s modifications,
-- merges them into one child.
-
-This preserves the idea that the genotype is a base solution plus changes.
-
-### Mutation
-
-Mutation introduces variation.
-
-There are two possible mutation types:
-
-- randomly move one demand node to another courier,
-- swap two demand nodes.
-
-Mutation is applied with probability `0.3` to each child.
-
-## Main Evolution Loop
-
-The GA runs for a fixed number of generations.
-
-For each generation:
-
-1. Evaluate the fitness of every individual.
-2. Sort the population by fitness.
-3. Keep the top 5 individuals unchanged (elitism).
-4. Build the rest of the next generation using crossover and mutation.
-5. Every 10 generations, compress individuals to keep chromosomes shorter.
-6. Print progress every 20 generations.
-
-This gives the algorithm a balance of:
-
-- **exploitation**: preserving the best current solutions,
-- **exploration**: generating new solutions through recombination and mutation.
-
-## Why This Matches the Task
-
-This solution matches the assignment requirements in the following way:
-
-- **Demand nodes are always assigned** because the base genotype is built from all demand nodes.
-- **Supply nodes are optional** because they are only used during fitness evaluation when refueling is needed.
-- **Couriers have limited operating time** and must refuel at supply nodes when necessary.
-- **A genetic algorithm is used** with population, fitness, crossover, mutation, and elitism.
-- **The genotype has a first gene and subsequent modifications**, exactly as requested in the task description.
-
-## Input File
-
-The algorithm reads the problem instance from `ex5.json`.
-
-The file contains:
-
-- depot node,
-- demand nodes,
-- supply nodes,
-- number of couriers,
-- maximum operating time,
-- coordinates of all nodes.
-
-The script resolves the input path relative to `exercise5/`, so it works both when launched from the repository root and when launched from inside the `exercise5` directory.
-
-## How to Run
-
-From the repository root:
+#
+## Running the Program
 
 ```bash
 python3 exercise5/ex5.py
 ```
 
-You can also provide a custom input file:
+By default, the program reads the input file named `ex5.json` from the same directory as the source file.
+
+You can provide your own input file by adding the `--input` argument:
 
 ```bash
-python3 exercise5/ex5.py --input path/to/other.json
+python3 exercise5/ex5.py --input path/to/file/input.json
 ```
 
-## Important Note
+#
+## Program Output
 
-The current implementation is structurally aligned with the task and the genotype definition, but the fitness function may still return the penalty value for all individuals on some instances if the random search does not discover a feasible route quickly enough. In other words, the algorithm is correct in form, but its search quality may need tuning for stronger optimization results.
+The program prints the best courier allocation found by the genetic algorithm, for example:
+
+```text
+Gen 0 | Best Cost: 123.45
+Gen 20 | Best Cost: 98.10
+
+ALLOCATION FOUND
+Courier 0: Visits Demand Nodes [1, 4]
+Courier 1: Visits Demand Nodes [2, 3]
+```
